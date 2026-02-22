@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Fraction Operations</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['\\(', '\\)']] },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+    <style>
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100%;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            overflow-x: hidden;
+        }
+
+        .card {
+            background: white;
+            margin: 10px;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+            width: 100vw;
+            max-width: 100vw;
+            text-align: center;
+        }
+
+        h1 {
+            margin-top: 0;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .controls {
+            margin-bottom: 30px;
+        }
+
+        .op-buttons {
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .op-button {
+            width: 48px;
+            height: 48px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: white;
+            background: #444;
+            /* dark gray when unchecked */
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .op-button.selected {
+            background: #279c52;
+            /* dark green when checked */
+        }
+
+        .sign-button {
+            width: 32px;
+            height: 32px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: #111;
+            background: #fff !important;
+            border: 2px solid #ccc;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-right: 6px;
+        }
+
+        /* keep sign-button background white even when correctness classes are applied */
+        .sign-button.correct,
+        .sign-button.wrong {
+            background: white !important;
+        }
+
+        .sign-button:hover {
+            background: #fff !important;
+        }
+
+        input[type="number"] {
+            padding: 8px;
+            width: 80px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+
+        button {
+            padding: 8px 16px;
+            font-size: 15px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: #667eea;
+            color: white;
+            transition: 0.2s ease;
+        }
+
+        button:hover {
+            background: #5a67d8;
+        }
+
+        .expression {
+            font-size: 26px;
+            margin-top: 30px;
+            min-height: 80px;
+        }
+
+        /* Horizontal alignment container */
+        .expression-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        /* allow LaTeX expression to shrink/wrap so buttons won't overflow */
+        #latexExpression {
+            flex: 0 1 auto;
+            min-width: 0;
+            text-align: center;
+        }
+
+        /* wrapper that constrains rendered LaTeX and allows us to scale it to fit
+           Make this flexible (not full-width) so result inputs and CHECK can
+           remain on the same row when space allows. */
+        #latexWrapper {
+            flex: 0 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .fraction-input {
+            flex: 0 0 auto;
+        }
+
+        .expression-row>button {
+            flex: 0 0 auto;
+            margin-top: 8px;
+        }
+
+        /* Custom input fraction */
+        .fraction-input {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transform: translateY(-2px);
+            /* tiny optical adjustment */
+        }
+
+        .result-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: nowrap;
+            white-space: nowrap;
+        }
+
+        .fraction-input .fraction-row {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .fraction-input input {
+            width: 60px;
+            font-size: 20px;
+            padding: 4px;
+            text-align: center;
+            border-radius: 6px;
+            border: 2px solid #ccc;
+        }
+
+        .fraction-bar {
+            width: 70px;
+            border-top: 2px solid black;
+            margin: 4px 0;
+        }
+
+        .correct {
+            border-color: #2ecc71 !important;
+            background-color: #eafaf1;
+        }
+
+        .wrong {
+            border-color: #e74c3c !important;
+            background-color: #fdecea;
+        }
+
+        #factorBubble {
+            position: absolute;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 8px 12px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            font-size: 14px;
+            z-index: 1000;
+        }
+
+        .factor-overlay {
+            position: absolute;
+            background: transparent;
+            cursor: pointer;
+            z-index: 999;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .factor-overlay:hover {
+            outline: 2px dotted #279c52;
+            outline-offset: -2px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="card">
+        <h1>Fraction Operations</h1>
+
+        <div class="controls">
+            <div class="op-buttons" role="group" aria-label="Operations">
+                <button class="op-button" data-op="+" onclick="toggleOp(this)">+</button>
+                <button class="op-button" data-op="-" onclick="toggleOp(this)">−</button>
+                <button class="op-button" data-op="*" onclick="toggleOp(this)">×</button>
+                <button class="op-button" data-op="/" onclick="toggleOp(this)">÷</button>
+            </div>
+
+            Fraction count:
+            <input type="number" id="numFractions" min="2" max="6" value="2" onblur="clampNumFractions(this)">
+            <button onclick="generateProblem()" style="margin-top: 2px">Generate</button>
+        </div>
+
+        <div class="expression" id="expressionArea" hidden>
+            <div class="expression-row">
+                <div id="latexWrapper"><span id="latexExpression"></span></div>
+
+                <span class="result-group">
+                    <button class="sign-button" id="resultSign" onclick="toggleSign(this)">+</button>
+
+                    <span class="fraction-input">
+                        <input type="text" id="resultNum" inputmode="numeric"
+                            oninput="this.value=this.value.replace(/\D/g,'')">
+                        <div class="fraction-bar"></div>
+                        <input type="text" id="resultDen" inputmode="numeric"
+                            oninput="this.value=this.value.replace(/\D/g,'')">
+                    </span>
+                </span>
+
+                <button onclick="checkAnswer()">CHECK</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let fractions = [];
+        let operators = [];
+
+        function randomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function gcd(a, b) {
+            while (b !== 0) {
+                let t = b;
+                b = a % b;
+                a = t;
+            }
+            return a;
+        }
+
+        function simplify(n, d) {
+            let g = gcd(Math.abs(n), Math.abs(d));
+            return [n / g, d / g];
+        }
+
+        function toggleOp(btn) {
+            btn.classList.toggle('selected');
+        }
+
+        function toggleSign(btn) {
+            btn.textContent = btn.textContent === '+' ? '-' : '+';
+        }
+
+        function clampNumFractions(el) {
+            const minAttr = parseInt(el.getAttribute('min'), 10);
+            const maxAttr = parseInt(el.getAttribute('max'), 10);
+            const min = isNaN(minAttr) ? 2 : minAttr;
+            const max = isNaN(maxAttr) ? 6 : maxAttr;
+
+            let v = parseInt(el.value, 10);
+            if (isNaN(v)) v = min;
+            v = Math.min(Math.max(v, min), max);
+            el.value = v;
+            return v;
+        }
+
+        function primeFactorizationString(n) {
+            n = Math.abs(parseInt(n, 10));
+            if (isNaN(n) || n < 2) return n.toString();
+
+            const factors = {};
+            let d = 2;
+
+            while (n > 1) {
+                while (n % d === 0) {
+                    factors[d] = (factors[d] || 0) + 1;
+                    n /= d;
+                }
+                d++;
+            }
+
+            // build LaTeX: 2^{3} \times 3^{2} \times 5
+            const expression = Object.entries(factors)
+                .map(([p, exp]) => exp > 1 ? `${p}^{${exp}}` : `${p}`)
+                .join(' \\times ');
+            return `\\(${expression}\\)`;
+        }
+
+        // Scale or shrink the LaTeX expression so it fits within its wrapper on small screens.
+        function fitLatex() {
+            const wrapper = document.getElementById('latexWrapper');
+            const latexEl = document.getElementById('latexExpression');
+            if (!wrapper || !latexEl) return;
+
+            // Reset any previous sizing
+            latexEl.style.fontSize = '';
+            latexEl.style.transform = '';
+
+            const maxWidth = wrapper.clientWidth || window.innerWidth;
+
+            // measure and iteratively reduce font-size percent until it fits or reaches a floor
+            let rect = latexEl.getBoundingClientRect();
+            if (rect.width <= maxWidth - 8) return;
+
+            let percent = 100;
+            const minPercent = 30;
+            // try decreasing in small steps (max 12 iterations)
+            for (let i = 0; i < 12; i++) {
+                percent = Math.max(minPercent, percent - 8);
+                latexEl.style.fontSize = percent + '%';
+                rect = latexEl.getBoundingClientRect();
+                if (rect.width <= maxWidth - 8) break;
+                if (percent === minPercent) break;
+            }
+        }
+
+        async function generateProblem() {
+            const numEl = document.getElementById("numFractions");
+            const count = clampNumFractions(numEl);
+            fractions = [];
+
+            for (let i = 0; i < count; i++) {
+                let numerator = randomInt(1, 50);
+                let denominator = randomInt(2, 30);
+                fractions.push([numerator, denominator]);
+            }
+
+            let latex = "";
+            // choose random operators between fractions
+            const opChoices = ['+', '-', '*', '/'];
+            // determine allowed ops based on selected buttons; if none selected, use all
+            const selectedEls = document.querySelectorAll('.op-button.selected');
+            let allowedOps = [];
+            if (selectedEls.length === 0) {
+                allowedOps = opChoices;
+            } else {
+                allowedOps = Array.from(selectedEls).map(e => e.dataset.op);
+            }
+
+            operators = [];
+            for (let i = 0; i < fractions.length - 1; i++) {
+                operators.push(allowedOps[randomInt(0, allowedOps.length - 1)]);
+            }
+
+            for (let i = 0; i < fractions.length; i++) {
+                latex += "\\frac{" + fractions[i][0] + "}{" + fractions[i][1] + "}";
+                if (i < fractions.length - 1) {
+                    const op = operators[i];
+                    const latexOp = op === '+' ? ' + ' : op === '-' ? ' - ' : op === '*' ? ' \\times ' : ' \\div ';
+                    latex += latexOp;
+                }
+            }
+
+            document.getElementById("latexExpression").innerHTML = `\\(${latex} = \\)`;
+            document.getElementById("expressionArea").removeAttribute("hidden");
+
+            await MathJax.typesetPromise();
+
+            // attempt to scale the rendered LaTeX so it doesn't overflow small screens
+            try { fitLatex(); } catch (e) { /* ignore */ }
+
+            // Remove existing bubble
+            function removeFactorBubble() {
+                const existing = document.getElementById("factorBubble");
+                if (existing) existing.remove();
+            }
+
+            // Setup click listeners on MathJax numbers
+            function setupFactorClickHandlers() {
+                // remove old overlays if any
+                removeFactorOverlays();
+
+                const mjNumbers = document.querySelectorAll("#expressionArea .mjx-mn, #expressionArea mjx-container svg g g g g");
+                const numbers = fractions.flat();
+
+                // create an overlay div for each rendered number that covers its bounding rect
+                const overlays = [];
+
+                const overlayPadding = 6; // pixels of padding around the bounding rect
+                for (let i = 0; i < mjNumbers.length; i++) {
+                    const numberElement = mjNumbers[i];
+                    const rect = numberElement.getBoundingClientRect();
+
+                    const overlay = document.createElement('div');
+                    overlay.className = 'factor-overlay';
+                    overlay.dataset.index = i;
+                    overlay.style.left = (rect.left + window.scrollX - overlayPadding) + 'px';
+                    overlay.style.top = (rect.top + window.scrollY - overlayPadding) + 'px';
+                    overlay.style.width = (rect.width + overlayPadding * 2) + 'px';
+                    overlay.style.height = (rect.height + overlayPadding * 2) + 'px';
+
+                    overlay.addEventListener('click', async function (event) {
+                        event.stopPropagation();
+                        removeFactorBubble();
+
+                        const idx = parseInt(this.dataset.index, 10);
+                        const bubble = document.createElement("div");
+                        bubble.id = "factorBubble";
+                        bubble.innerHTML = primeFactorizationString(numbers[idx]);
+                        document.body.appendChild(bubble);
+
+                        await MathJax.typesetPromise([bubble]).catch(() => { });
+
+                        // position bubble centered over number; numerators (even idx) above, denominators below
+                        const elRect = mjNumbers[idx].getBoundingClientRect();
+                        const centeredLeft = elRect.left + window.scrollX + (elRect.width / 2) - (bubble.offsetWidth / 2);
+                        bubble.style.left = centeredLeft + 'px';
+                        if (idx % 2 === 0) {
+                            bubble.style.top = (elRect.top + window.scrollY - bubble.offsetHeight - 6) + 'px';
+                        } else {
+                            bubble.style.top = (elRect.bottom + window.scrollY + 6) + 'px';
+                        }
+                    });
+
+                    document.body.appendChild(overlay);
+                    overlays.push(overlay);
+                }
+
+                // store overlays so we can remove or reposition them later
+                window._factorOverlays = overlays;
+
+                // reposition overlays on scroll/resize
+                function positionOverlays() {
+                    if (!window._factorOverlays) return;
+                    for (let j = 0; j < overlays.length; j++) {
+                        const idx = parseInt(overlays[j].dataset.index, 10);
+                        const el = mjNumbers[idx];
+                        if (!el) continue;
+                        const r = el.getBoundingClientRect();
+                        overlays[j].style.left = (r.left + window.scrollX - overlayPadding) + 'px';
+                        overlays[j].style.top = (r.top + window.scrollY - overlayPadding) + 'px';
+                        overlays[j].style.width = (r.width + overlayPadding * 2) + 'px';
+                        overlays[j].style.height = (r.height + overlayPadding * 2) + 'px';
+                    }
+                }
+
+                window.addEventListener('resize', positionOverlays);
+                window.addEventListener('scroll', positionOverlays);
+
+                // Clicking elsewhere removes bubble
+                document.addEventListener("click", removeFactorBubble);
+            }
+
+            function removeFactorOverlays() {
+                if (window._factorOverlays) {
+                    window._factorOverlays.forEach(o => o.remove());
+                    window._factorOverlays = null;
+                }
+            }
+
+            // Initialize handlers after MathJax rendering
+            setupFactorClickHandlers();
+
+            // Ensure fitLatex runs on resize and that overlays reposition accordingly.
+            if (!window._fitLatexResizeAdded) {
+                window.addEventListener('resize', function () {
+                    try { fitLatex(); } catch (e) { }
+
+                    // reposition existing overlays if present
+                    if (window._factorOverlays && window._factorOverlays.length) {
+                        const mjNumbers = document.querySelectorAll("#expressionArea .mjx-mn, #expressionArea mjx-container svg g g g g");
+                        const overlayPadding = 6;
+                        for (let j = 0; j < window._factorOverlays.length; j++) {
+                            const ov = window._factorOverlays[j];
+                            const idx = parseInt(ov.dataset.index, 10);
+                            const el = mjNumbers[idx];
+                            if (!el) continue;
+                            const r = el.getBoundingClientRect();
+                            ov.style.left = (r.left + window.scrollX - overlayPadding) + 'px';
+                            ov.style.top = (r.top + window.scrollY - overlayPadding) + 'px';
+                            ov.style.width = (r.width + overlayPadding * 2) + 'px';
+                            ov.style.height = (r.height + overlayPadding * 2) + 'px';
+                        }
+                    }
+                });
+                window._fitLatexResizeAdded = true;
+            }
+        }
+
+        function checkAnswer() {
+            if (fractions.length === 0) return;
+
+            // start with the first fraction
+            let totalNum = fractions[0][0];
+            let totalDen = fractions[0][1];
+
+            for (let i = 1; i < fractions.length; i++) {
+                let n = fractions[i][0];
+                let d = fractions[i][1];
+                const op = operators[i - 1];
+
+                if (op === '+') {
+                    totalNum = totalNum * d + n * totalDen;
+                    totalDen = totalDen * d;
+                } else if (op === '-') {
+                    totalNum = totalNum * d - n * totalDen;
+                    totalDen = totalDen * d;
+                } else if (op === '*') {
+                    totalNum = totalNum * n;
+                    totalDen = totalDen * d;
+                } else if (op === '/') {
+                    totalNum = totalNum * d;
+                    totalDen = totalDen * n;
+                }
+
+                let simplified = simplify(totalNum, totalDen);
+                totalNum = simplified[0];
+                totalDen = simplified[1];
+            }
+
+            const numInput = document.getElementById("resultNum");
+            const denInput = document.getElementById("resultDen");
+            const resultSignBtn = document.getElementById("resultSign");
+
+            // sanitize and parse numeric-only inputs
+            const rawNum = (numInput && numInput.value) ? numInput.value.replace(/\D/g, '') : '';
+            const rawDen = (denInput && denInput.value) ? denInput.value.replace(/\D/g, '') : '';
+            let userNum = rawNum === '' ? NaN : parseInt(rawNum, 10);
+            let userDen = rawDen === '' ? NaN : parseInt(rawDen, 10);
+
+            // apply overall sign from single sign button to numerator
+            if (resultSignBtn && resultSignBtn.textContent === '-') userNum = -userNum;
+
+            numInput.classList.remove("correct", "wrong");
+            denInput.classList.remove("correct", "wrong");
+            if (resultSignBtn) resultSignBtn.classList.remove("correct", "wrong");
+
+            if (userNum === totalNum && userDen === totalDen) {
+                numInput.classList.add("correct");
+                denInput.classList.add("correct");
+                if (resultSignBtn) resultSignBtn.classList.add("correct");
+            } else {
+                numInput.classList.add("wrong");
+                denInput.classList.add("wrong");
+                if (resultSignBtn) resultSignBtn.classList.add("wrong");
+            }
+        }
+    </script>
+
+</body>
+
+</html>
