@@ -152,6 +152,11 @@
             background: #5a67d8;
         }
 
+        button.disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
         .expression {
             font-size: 26px;
             margin-top: 30px;
@@ -268,6 +273,32 @@
             outline: 2px dotted #279c52;
             outline-offset: -2px;
         }
+
+        /* footer score */
+        .card-footer {
+            margin-top: 18px;
+            border-top: 1px solid #eee;
+            padding-top: 12px;
+        }
+
+        .score-row {
+            display: flex;
+            align-items: baseline;
+            justify-content: center;
+            gap: 10px;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .score {
+            display: inline-block;
+            min-width: 40px;
+            text-align: center;
+            font-weight: 700;
+            transition: transform 0.3s ease, color 0.3s ease, font-size 0.3s ease;
+            color: #333;
+            font-size: 18px;
+        }
     </style>
 </head>
 
@@ -317,7 +348,13 @@
                     </span>
                 </span>
 
-                <button onclick="checkAnswer()">CHECK</button>
+                <button id="checkBtn" onclick="checkAnswer()">CHECK</button>
+            </div>
+        </div>
+        <div class="card-footer">
+            <div class="score-row">
+                <span>Total correct:</span>
+                <span id="correctCount" class="score">0</span>
             </div>
         </div>
     </div>
@@ -489,7 +526,40 @@
                 signBtn.textContent = '+';
                 signBtn.classList.remove('correct', 'wrong');
             }
+            // ensure CHECK button is enabled when resetting for a new problem
+            const checkBtn = document.getElementById('checkBtn');
+            if (checkBtn) {
+                checkBtn.disabled = false;
+                checkBtn.classList.remove('disabled');
+            }
         }
+
+        // persistent correct-answer count stored in localStorage
+        const STORAGE_KEY = 'fraction_correct_count';
+        let correctCount = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10) || 0;
+
+        function updateScoreUI(n, animate) {
+            const el = document.getElementById('correctCount');
+            if (!el) return;
+            el.textContent = String(n);
+            if (animate) {
+                // make it large and green immediately, then animate back to normal over 0.3s
+                el.style.transition = 'none';
+                el.style.transform = 'scale(1.4)';
+                el.style.color = '#2ecc71';
+                el.style.fontSize = '24px';
+                // force reflow
+                void el.offsetWidth;
+                // now enable transition and revert to normal
+                el.style.transition = 'transform 0.3s ease, color 0.3s ease, font-size 0.3s ease';
+                el.style.transform = 'scale(1)';
+                el.style.color = '';
+                el.style.fontSize = '';
+            }
+        }
+
+        // initialize UI on load
+        updateScoreUI(correctCount, false);
 
         async function generateProblem() {
             const count = clampInputElement(document.getElementById("numFractions"));
@@ -708,6 +778,18 @@
                 numInput.classList.add("correct");
                 denInput.classList.add("correct");
                 if (resultSignBtn) resultSignBtn.classList.add("correct");
+
+                // increment persistent counter and animate UI
+                correctCount = (correctCount || 0) + 1;
+                try { localStorage.setItem(STORAGE_KEY, String(correctCount)); } catch (e) { }
+                updateScoreUI(correctCount, true);
+
+                // disable CHECK until a new problem is generated
+                const checkBtn = document.getElementById('checkBtn');
+                if (checkBtn) {
+                    checkBtn.disabled = true;
+                    checkBtn.classList.add('disabled');
+                }
             } else {
                 numInput.classList.add("wrong");
                 denInput.classList.add("wrong");
