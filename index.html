@@ -157,6 +157,30 @@
             cursor: not-allowed;
         }
 
+        /* fixed RESET button */
+        .reset-button {
+            position: fixed;
+            right: 16px;
+            bottom: 16px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-weight: 700;
+            z-index: 1200;
+            box-shadow: 0 6px 18px rgba(231, 76, 60, 0.22);
+            cursor: pointer;
+        }
+
+        .reset-button:hover {
+            background: #c0392b;
+        }
+
+        .reset-button:active {
+            transform: translateY(1px);
+        }
+
         .expression {
             font-size: 26px;
             margin-top: 30px;
@@ -359,6 +383,8 @@
         </div>
     </div>
 
+    <button id="resetBtn" class="reset-button" aria-label="Reset total correct">RESET</button>
+
     <script>
         let fractions = [];
         let operators = [];
@@ -538,6 +564,30 @@
         const STORAGE_KEY = 'fraction_correct_count';
         let correctCount = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10) || 0;
 
+        // storage keys for generation parameters (persist but not reset by RESET)
+        const STORAGE_MAX_NUM = 'fraction_max_number';
+        const STORAGE_NUM_COUNT = 'fraction_num_count';
+
+        // restore generation parameters into inputs if present
+        (function restoreGenerationParams() {
+            const maxEl = document.getElementById('maxNumber');
+            const countEl = document.getElementById('numFractions');
+            try {
+                const storedMax = parseInt(localStorage.getItem(STORAGE_MAX_NUM), 10);
+                if (!Number.isNaN(storedMax) && maxEl) {
+                    maxEl.value = storedMax;
+                    clampInputElement(maxEl);
+                }
+            } catch (e) { }
+            try {
+                const storedCount = parseInt(localStorage.getItem(STORAGE_NUM_COUNT), 10);
+                if (!Number.isNaN(storedCount) && countEl) {
+                    countEl.value = storedCount;
+                    clampInputElement(countEl);
+                }
+            } catch (e) { }
+        })();
+
         function updateScoreUI(n, animate) {
             const el = document.getElementById('correctCount');
             if (!el) return;
@@ -561,10 +611,24 @@
         // initialize UI on load
         updateScoreUI(correctCount, false);
 
+        // wire reset button
+        const resetBtn = document.getElementById('resetBtn');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', function () {
+                correctCount = 0;
+                try { localStorage.setItem(STORAGE_KEY, '0'); } catch (e) { }
+                updateScoreUI(correctCount, true);
+            });
+        }
+
         async function generateProblem() {
             const count = clampInputElement(document.getElementById("numFractions"));
             const maxNum = clampInputElement(document.getElementById("maxNumber"));
             fractions = [];
+
+            // persist generation parameters so they survive reloads (not cleared by RESET)
+            try { localStorage.setItem(STORAGE_MAX_NUM, String(maxNum)); } catch (e) { }
+            try { localStorage.setItem(STORAGE_NUM_COUNT, String(count)); } catch (e) { }
 
             for (let i = 0; i < count; i++) {
                 let numerator = factorWeightedInt(1, maxNum / 2);
