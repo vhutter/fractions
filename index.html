@@ -63,6 +63,26 @@
             gap: 8px;
         }
 
+        /* controls column: stack inputs and keep them aligned */
+        .control-grid {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        .control-row {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .control-row input[type="number"] {
+            width: 120px;
+        }
+
         .op-button {
             width: 48px;
             height: 48px;
@@ -264,9 +284,21 @@
                 <button class="op-button" data-op="/" onclick="toggleOp(this)">÷</button>
             </div>
 
-            Fraction count:
-            <input type="number" id="numFractions" min="2" max="6" value="2" onblur="clampNumFractions(this)">
-            <button onclick="generateProblem()" style="margin-top: 2px">Generate</button>
+            <div class="control-grid">
+                <label class="control-row">
+                    <span class="control-label">Maximum number size:</span>
+                    <input type="number" id="maxNumber" min="10" max="100" value="50" onblur="clampInputElement(this)">
+                </label>
+
+                <label class="control-row">
+                    <span class="control-label">Fraction count:</span>
+                    <input type="number" id="numFractions" min="2" max="6" value="2" onblur="clampInputElement(this)">
+                </label>
+
+                <div class="control-row">
+                    <button id="generateBtn" onclick="generateProblem()">Generate</button>
+                </div>
+            </div>
         </div>
 
         <div class="expression" id="expressionArea" hidden>
@@ -294,8 +326,66 @@
         let fractions = [];
         let operators = [];
 
+        const primeDivisorsOf = (() => {
+            const cache = [];
+            cache[0] = [];
+            cache[1] = [];
+
+            for (let n = 2; n <= 100; ++n) {
+                let x = n;
+                const factors = [];
+                let d = 2;
+                while (d * d <= x) {
+                    while (x % d === 0) {
+                        factors.push(d);
+                        x = x / d;
+                    }
+                    d++;
+                }
+                if (x > 1) factors.push(x);
+
+                cache[n] = factors;
+            }
+
+            return cache;
+        })();
+
+        const divisorCountPrefixSum = (() => {
+            const prefixSum = [0, 1]; // 0 and 1 should be treated as exceptions
+
+            for (let n = 2; n < primeDivisorsOf.length; ++n) {
+                prefixSum[n] = prefixSum[n - 1] + primeDivisorsOf[n].length;
+            }
+
+            return prefixSum;
+        })();
+
         function randomInt(min, max) {
             return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function factorWeightedInt(min, max) {
+            min = Math.max(0, Math.floor(min));
+            max = Math.min(Math.floor(max), primeDivisorsOf.length - 1);
+            if (min > max) return min;
+
+            const prefixBefore = (min > 0) ? divisorCountPrefixSum[min - 1] : 0;
+            const total = divisorCountPrefixSum[max] - prefixBefore;
+
+            // if there is no weight information (total === 0), fall back to uniform
+            if (!total || total <= 0) return randomInt(min, max);
+
+            // pick a target in [1..total]
+            let target = randomInt(1, total);
+
+            // binary search for the smallest n in [min..max] with cumulative >= target
+            let lo = min, hi = max;
+            while (lo < hi) {
+                const mid = Math.floor((lo + hi) / 2);
+                const cum = divisorCountPrefixSum[mid] - prefixBefore;
+                if (cum >= target) hi = mid; else lo = mid + 1;
+            }
+            return lo;
         }
 
         function gcd(a, b) {
@@ -320,7 +410,7 @@
             btn.textContent = btn.textContent === '+' ? '-' : '+';
         }
 
-        function clampNumFractions(el) {
+        function clampInputElement(el) {
             const minAttr = parseInt(el.getAttribute('min'), 10);
             const maxAttr = parseInt(el.getAttribute('max'), 10);
             const min = isNaN(minAttr) ? 2 : minAttr;
@@ -383,14 +473,32 @@
             }
         }
 
+        function resetResultState() {
+            const numInput = document.getElementById("resultNum");
+            const denInput = document.getElementById("resultDen");
+            const signBtn = document.getElementById("resultSign");
+            if (numInput) {
+                numInput.value = '';
+                numInput.classList.remove('correct', 'wrong');
+            }
+            if (denInput) {
+                denInput.value = '';
+                denInput.classList.remove('correct', 'wrong');
+            }
+            if (signBtn) {
+                signBtn.textContent = '+';
+                signBtn.classList.remove('correct', 'wrong');
+            }
+        }
+
         async function generateProblem() {
-            const numEl = document.getElementById("numFractions");
-            const count = clampNumFractions(numEl);
+            const count = clampInputElement(document.getElementById("numFractions"));
+            const maxNum = clampInputElement(document.getElementById("maxNumber"));
             fractions = [];
 
             for (let i = 0; i < count; i++) {
-                let numerator = randomInt(1, 50);
-                let denominator = randomInt(2, 30);
+                let numerator = factorWeightedInt(1, maxNum / 2);
+                let denominator = factorWeightedInt(2, maxNum);
                 fractions.push([numerator, denominator]);
             }
 
@@ -422,6 +530,8 @@
 
             document.getElementById("latexExpression").innerHTML = `\\(${latex} = \\)`;
             document.getElementById("expressionArea").removeAttribute("hidden");
+
+            resetResultState();
 
             await MathJax.typesetPromise();
 
