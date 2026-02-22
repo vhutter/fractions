@@ -560,10 +560,6 @@
             }
         }
 
-        // persistent correct-answer count stored in localStorage
-        const STORAGE_KEY = 'fraction_correct_count';
-        let correctCount = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10) || 0;
-
         // storage keys for generation parameters (persist but not reset by RESET)
         const STORAGE_MAX_NUM = 'fraction_max_number';
         const STORAGE_NUM_COUNT = 'fraction_num_count';
@@ -608,16 +604,26 @@
             }
         }
 
+        // persistent correct-answer count stored in localStorage
+        const STORAGE_KEY = 'fraction_correct_count';
+
+        function getCorrectAnswersCounter() {
+            return parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10) || 0;
+        }
+
+        function setCorrectAnswersCounter(count) {
+            localStorage.setItem(STORAGE_KEY, String(count));
+            updateScoreUI(count, true);
+        }
+
         // initialize UI on load
-        updateScoreUI(correctCount, false);
+        updateScoreUI(getCorrectAnswersCounter(), false);
 
         // wire reset button
         const resetBtn = document.getElementById('resetBtn');
         if (resetBtn) {
-            resetBtn.addEventListener('click', function () {
-                correctCount = 0;
-                try { localStorage.setItem(STORAGE_KEY, '0'); } catch (e) { }
-                updateScoreUI(correctCount, true);
+            resetBtn.addEventListener('click', () => {
+                setCorrectAnswersCounter(0);
             });
         }
 
@@ -825,28 +831,35 @@
             const denInput = document.getElementById("resultDen");
             const resultSignBtn = document.getElementById("resultSign");
 
-            // sanitize and parse numeric-only inputs
             const rawNum = (numInput && numInput.value) ? numInput.value.replace(/\D/g, '') : '';
             const rawDen = (denInput && denInput.value) ? denInput.value.replace(/\D/g, '') : '';
-            let userNum = rawNum === '' ? NaN : parseInt(rawNum, 10);
-            let userDen = rawDen === '' ? NaN : parseInt(rawDen, 10);
+            const userNumAbs = rawNum === '' ? NaN : parseInt(rawNum, 10);
+            const userDen = rawDen === '' ? NaN : parseInt(rawDen, 10);
 
-            // apply overall sign from single sign button to numerator
-            if (resultSignBtn && resultSignBtn.textContent === '-') userNum = -userNum;
+            const userSign = (resultSignBtn && resultSignBtn.textContent === '-') ? -1 : 1;
 
+            const expectedSign = (totalNum < 0) ? -1 : 1;
+            const expectedNumAbs = Math.abs(totalNum);
+            const expectedDen = totalDen;
+
+            // clear previous markers
             numInput.classList.remove("correct", "wrong");
             denInput.classList.remove("correct", "wrong");
             if (resultSignBtn) resultSignBtn.classList.remove("correct", "wrong");
 
-            if (userNum === totalNum && userDen === totalDen) {
-                numInput.classList.add("correct");
-                denInput.classList.add("correct");
-                if (resultSignBtn) resultSignBtn.classList.add("correct");
+            // partial correctness checks
+            const signCorrect = (userSign === expectedSign);
+            const numCorrect = (!Number.isNaN(userNumAbs) && userNumAbs === expectedNumAbs);
+            const denCorrect = (!Number.isNaN(userDen) && userDen === expectedDen);
 
-                // increment persistent counter and animate UI
-                correctCount = (correctCount || 0) + 1;
-                try { localStorage.setItem(STORAGE_KEY, String(correctCount)); } catch (e) { }
-                updateScoreUI(correctCount, true);
+            // apply classes individually
+            if (resultSignBtn) resultSignBtn.classList.add(signCorrect ? 'correct' : 'wrong');
+            if (numInput) numInput.classList.add(numCorrect ? 'correct' : 'wrong');
+            if (denInput) denInput.classList.add(denCorrect ? 'correct' : 'wrong');
+
+            // only count as fully correct when all parts match
+            if (signCorrect && numCorrect && denCorrect) {
+                setCorrectAnswersCounter(getCorrectAnswersCounter() + 1);
 
                 // disable CHECK until a new problem is generated
                 const checkBtn = document.getElementById('checkBtn');
@@ -854,10 +867,6 @@
                     checkBtn.disabled = true;
                     checkBtn.classList.add('disabled');
                 }
-            } else {
-                numInput.classList.add("wrong");
-                denInput.classList.add("wrong");
-                if (resultSignBtn) resultSignBtn.classList.add("wrong");
             }
         }
     </script>
